@@ -43,7 +43,7 @@
 
 -module(leveled_cdb).
 
--behaviour(gen_fsm).
+-behaviour(gen_fsm_compat).
 -include("include/leveled.hrl").
 
 -export([init/1,
@@ -145,8 +145,10 @@ cdb_open_writer(Filename) ->
 %% hashtree cached in memory (the file will need to be scanned to build the
 %% hashtree)
 cdb_open_writer(Filename, Opts) ->
-    {ok, Pid} = gen_fsm:start(?MODULE, [Opts], []),
-    ok = gen_fsm:sync_send_event(Pid, {open_writer, Filename}, infinity),
+    {ok, Pid} = gen_fsm_compat:start(?MODULE, [Opts], []),
+    ok = gen_fsm_compat:sync_send_event(Pid, 
+                                        {open_writer, Filename}, 
+                                        infinity),
     {ok, Pid}.
 
 -spec cdb_reopen_reader(string(), binary(), cdb_options()) -> {ok, pid()}.
@@ -160,8 +162,10 @@ cdb_open_writer(Filename, Opts) ->
 %% determine when scans over a file have completed.
 cdb_reopen_reader(Filename, LastKey, CDBopts) ->
     {ok, Pid} = 
-        gen_fsm:start(?MODULE, [CDBopts#cdb_options{binary_mode=true}], []),
-    ok = gen_fsm:sync_send_event(Pid,
+        gen_fsm_compat:start(?MODULE, 
+                                [CDBopts#cdb_options{binary_mode=true}],
+                                []),
+    ok = gen_fsm_compat:sync_send_event(Pid,
                                     {open_reader, Filename, LastKey},
                                     infinity),
     {ok, Pid}.
@@ -181,15 +185,15 @@ cdb_open_reader(Filename) ->
 %% to discover the LastKey.
 %% Allows non-default cdb_options to be passed
 cdb_open_reader(Filename, Opts) ->
-    {ok, Pid} = gen_fsm:start(?MODULE, [Opts], []),
-    ok = gen_fsm:sync_send_event(Pid, {open_reader, Filename}, infinity),
+    {ok, Pid} = gen_fsm_compat:start(?MODULE, [Opts], []),
+    ok = gen_fsm_compat:sync_send_event(Pid, {open_reader, Filename}, infinity),
     {ok, Pid}.
 
 -spec cdb_get(pid(), any()) -> {any(), any()}|missing.
 %% @doc
 %% Extract a Key and Value from a CDB file by passing in a Key.  
 cdb_get(Pid, Key) ->
-    gen_fsm:sync_send_event(Pid, {get_kv, Key}, infinity).
+    gen_fsm_compat:sync_send_event(Pid, {get_kv, Key}, infinity).
 
 -spec cdb_put(pid(), any(), any()) -> ok|roll.
 %% @doc
@@ -200,7 +204,7 @@ cdb_get(Pid, Key) ->
 %% It is assumed that the response to a "roll" will be to roll the file, which
 %% will close this file for writing after persisting the hashtree.  
 cdb_put(Pid, Key, Value) ->
-    gen_fsm:sync_send_event(Pid, {put_kv, Key, Value}, infinity).
+    gen_fsm_compat:sync_send_event(Pid, {put_kv, Key, Value}, infinity).
 
 -spec cdb_mput(pid(), list()) -> ok|roll.
 %% @doc
@@ -211,7 +215,7 @@ cdb_put(Pid, Key, Value) ->
 %% It may be preferable to respond to roll by trying individual PUTs until
 %% roll is returned again
 cdb_mput(Pid, KVList) ->
-    gen_fsm:sync_send_event(Pid, {mput_kv, KVList}, infinity).
+    gen_fsm_compat:sync_send_event(Pid, {mput_kv, KVList}, infinity).
 
 -spec cdb_getpositions(pid(), integer()|all) -> list().
 %% @doc
@@ -250,7 +254,7 @@ cdb_getpositions(Pid, SampleSize) ->
     end.
 
 cdb_getpositions_fromidx(Pid, SampleSize, Index, Acc) ->
-    gen_fsm:sync_send_event(Pid, {get_positions, SampleSize, Index, Acc}).
+    gen_fsm_compat:sync_send_event(Pid, {get_positions, SampleSize, Index, Acc}).
 
 -spec cdb_directfetch(pid(), list(), key_only|key_size|key_value_check) ->
                                                                         list().
@@ -259,20 +263,20 @@ cdb_getpositions_fromidx(Pid, SampleSize, Index, Acc) ->
 %% key_value_check (with the check part indicating if the CRC is correct for
 %% the value)
 cdb_directfetch(Pid, PositionList, Info) ->
-    gen_fsm:sync_send_event(Pid, {direct_fetch, PositionList, Info}, infinity).
+    gen_fsm_compat:sync_send_event(Pid, {direct_fetch, PositionList, Info}, infinity).
 
 -spec cdb_close(pid()) -> ok.
 %% @doc
 %% RONSEAL
 cdb_close(Pid) ->
-    gen_fsm:sync_send_all_state_event(Pid, cdb_close, infinity).
+    gen_fsm_compat:sync_send_all_state_event(Pid, cdb_close, infinity).
 
 -spec cdb_complete(pid()) -> {ok, string()}.
 %% @doc
 %% Persists the hashtable to the end of the file, to close it for further
 %% writing then exit.  Returns the filename that was saved.
 cdb_complete(Pid) ->
-    gen_fsm:sync_send_event(Pid, cdb_complete, infinity).
+    gen_fsm_compat:sync_send_event(Pid, cdb_complete, infinity).
 
 -spec cdb_roll(pid()) -> ok.
 %% @doc
@@ -281,7 +285,7 @@ cdb_complete(Pid) ->
 %% rolling state whilst the hashtable is being written, and will become a
 %% reader (read-only) CDB file process on completion
 cdb_roll(Pid) ->
-    gen_fsm:send_event(Pid, cdb_roll).
+    gen_fsm_compat:send_event(Pid, cdb_roll).
 
 -spec cdb_returnhashtable(pid(), list(), binary()) -> ok.
 %% @doc
@@ -291,19 +295,19 @@ cdb_roll(Pid) ->
 %% [{Index, CurrPos, IndexLength}] which can be used to locate the slices of
 %% the hashtree within that binary
 cdb_returnhashtable(Pid, IndexList, HashTreeBin) ->
-    gen_fsm:sync_send_event(Pid, {return_hashtable, IndexList, HashTreeBin}, infinity).
+    gen_fsm_compat:sync_send_event(Pid, {return_hashtable, IndexList, HashTreeBin}, infinity).
 
 -spec cdb_checkhashtable(pid()) -> boolean().
 %% @doc
 %% Hash the hashtable been written for this file?
 cdb_checkhashtable(Pid) ->
-    gen_fsm:sync_send_event(Pid, check_hashtable).
+    gen_fsm_compat:sync_send_event(Pid, check_hashtable).
 
 -spec cdb_destroy(pid()) -> ok.
 %% @doc
 %% If the file is in a delete_pending state close (and will destroy)
 cdb_destroy(Pid) ->
-    gen_fsm:send_event(Pid, destroy).
+    gen_fsm_compat:send_event(Pid, destroy).
 
 cdb_deletepending(Pid) ->
     % Only used in unit tests
@@ -318,7 +322,7 @@ cdb_deletepending(Pid) ->
 %% Passing no_poll means there's no inker to poll, and the process will close
 %% on timeout rather than poll.
 cdb_deletepending(Pid, ManSQN, Inker) ->
-    gen_fsm:send_event(Pid, {delete_pending, ManSQN, Inker}).
+    gen_fsm_compat:send_event(Pid, {delete_pending, ManSQN, Inker}).
 
 -spec cdb_scan(pid(), fun(), any(), integer()|undefined) ->
                                                     {integer()|eof, any()}.
@@ -330,7 +334,7 @@ cdb_deletepending(Pid, ManSQN, Inker) ->
 %% LastPosition could be the atom complete when the last key processed was at
 %% the end of the file.  last_key must be defined in LoopState.
 cdb_scan(Pid, FilterFun, InitAcc, StartPosition) ->
-    gen_fsm:sync_send_all_state_event(Pid,
+    gen_fsm_compat:sync_send_all_state_event(Pid,
                                         {cdb_scan,
                                             FilterFun,
                                             InitAcc,
@@ -342,24 +346,24 @@ cdb_scan(Pid, FilterFun, InitAcc, StartPosition) ->
 %% Get the last key to be added to the file (which will have the highest
 %% sequence number)
 cdb_lastkey(Pid) ->
-    gen_fsm:sync_send_all_state_event(Pid, cdb_lastkey, infinity).
+    gen_fsm_compat:sync_send_all_state_event(Pid, cdb_lastkey, infinity).
 
 -spec cdb_firstkey(pid()) -> any().
 cdb_firstkey(Pid) ->
-    gen_fsm:sync_send_all_state_event(Pid, cdb_firstkey, infinity).
+    gen_fsm_compat:sync_send_all_state_event(Pid, cdb_firstkey, infinity).
 
 -spec cdb_filename(pid()) -> string().
 %% @doc
 %% Get the filename of the database
 cdb_filename(Pid) ->
-    gen_fsm:sync_send_all_state_event(Pid, cdb_filename, infinity).
+    gen_fsm_compat:sync_send_all_state_event(Pid, cdb_filename, infinity).
 
 -spec cdb_keycheck(pid(), any()) -> probably|missing.
 %% @doc
 %% Check to see if the key is probably present, will return either
 %% probably or missing.  Does not do a definitive check
 cdb_keycheck(Pid, Key) ->
-    gen_fsm:sync_send_event(Pid, {key_check, Key}, infinity).
+    gen_fsm_compat:sync_send_event(Pid, {key_check, Key}, infinity).
 
 %%%============================================================================
 %%% gen_server callbacks
@@ -746,10 +750,9 @@ handle_info(_Msg, StateName, State) ->
 terminate(_Reason, _StateName, _State) ->
     ok.
     
-
-
 code_change(_OldVsn, StateName, State, _Extra) ->
     {ok, StateName, State}.
+
 
 %%%============================================================================
 %%% Internal functions
@@ -2405,8 +2408,8 @@ safe_read_test() ->
     
 
 nonsense_coverage_test() ->
-    {ok, Pid} = gen_fsm:start(?MODULE, [#cdb_options{}], []),
-    ok = gen_fsm:send_all_state_event(Pid, nonsense),
+    {ok, Pid} = gen_fsm_compat:start(?MODULE, [#cdb_options{}], []),
+    ok = gen_fsm_compat:send_all_state_event(Pid, nonsense),
     ?assertMatch({next_state, reader, #state{}}, handle_info(nonsense,
                                                                 reader,
                                                                 #state{})),

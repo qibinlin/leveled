@@ -60,7 +60,7 @@
 
 -module(leveled_sst).
 
--behaviour(gen_fsm).
+-behaviour(gen_fsm_compat).
 
 -include("include/leveled.hrl").
 
@@ -188,8 +188,8 @@
 %%
 %% The filename should include the file extension.
 sst_open(RootPath, Filename) ->
-    {ok, Pid} = gen_fsm:start(?MODULE, [], []),
-    case gen_fsm:sync_send_event(Pid,
+    {ok, Pid} = gen_fsm_compat:start(?MODULE, [], []),
+    case gen_fsm_compat:sync_send_event(Pid,
                                     {sst_open, RootPath, Filename},
                                     infinity) of
         {ok, {SK, EK}, Bloom} ->
@@ -204,10 +204,10 @@ sst_open(RootPath, Filename) ->
 %% pairs.  This should not be used for basement levels or unexpanded Key/Value
 %% lists as merge_lists will not be called.
 sst_new(RootPath, Filename, Level, KVList, MaxSQN, PressMethod) ->
-    {ok, Pid} = gen_fsm:start(?MODULE, [], []),
+    {ok, Pid} = gen_fsm_compat:start(?MODULE, [], []),
     PressMethod0 = compress_level(Level, PressMethod),
     {[], [], SlotList, FK}  = merge_lists(KVList, PressMethod0),
-    case gen_fsm:sync_send_event(Pid,
+    case gen_fsm_compat:sync_send_event(Pid,
                                     {sst_new,
                                         RootPath,
                                         Filename,
@@ -244,16 +244,16 @@ sst_new(RootPath, Filename,
         [] ->
             empty;
         _ ->
-            {ok, Pid} = gen_fsm:start(?MODULE, [], []),
-            case gen_fsm:sync_send_event(Pid,
-                                            {sst_new,
-                                                RootPath,
-                                                Filename,
-                                                Level,
-                                                {SlotList, FK},
-                                                MaxSQN,
-                                                PressMethod0},
-                                            infinity) of
+            {ok, Pid} = gen_fsm_compat:start(?MODULE, [], []),
+            case gen_fsm_compat:sync_send_event(Pid,
+                                                {sst_new,
+                                                    RootPath,
+                                                    Filename,
+                                                    Level,
+                                                    {SlotList, FK},
+                                                    MaxSQN,
+                                                    PressMethod0},
+                                                infinity) of
                 {ok, {SK, EK}, Bloom} ->
                     {ok, Pid, {{Rem1, Rem2}, SK, EK}, Bloom}
             end
@@ -271,8 +271,8 @@ sst_newlevelzero(RootPath, Filename,
                     Slots, FetchFun, Penciller,
                     MaxSQN, PressMethod) ->
     PressMethod0 = compress_level(0, PressMethod),
-    {ok, Pid} = gen_fsm:start(?MODULE, [], []),
-    gen_fsm:send_event(Pid,
+    {ok, Pid} = gen_fsm_compat:start(?MODULE, [], []),
+    gen_fsm_compat:send_event(Pid,
                         {sst_newlevelzero,
                             RootPath,
                             Filename,
@@ -296,7 +296,7 @@ sst_get(Pid, LedgerKey) ->
 %% Return a Key, Value pair matching a Key or not_present if the Key is not in
 %% the store (with the magic hash precalculated).
 sst_get(Pid, LedgerKey, Hash) ->
-    gen_fsm:sync_send_event(Pid, {get_kv, LedgerKey, Hash}, infinity).
+    gen_fsm_compat:sync_send_event(Pid, {get_kv, LedgerKey, Hash}, infinity).
 
 
 -spec sst_getkvrange(pid(), tuple()|all, tuple()|all, integer()) -> list().
@@ -328,11 +328,11 @@ sst_getkvrange(Pid, StartKey, EndKey, ScanWidth) ->
 %% leveled_tictac
 sst_getfilteredrange(Pid, StartKey, EndKey, ScanWidth, SegList) ->
     SegList0 = tune_seglist(SegList),
-    case gen_fsm:sync_send_event(Pid,
-                                    {get_kvrange, 
-                                        StartKey, EndKey, 
-                                        ScanWidth, SegList0},
-                                    infinity) of
+    case gen_fsm_compat:sync_send_event(Pid,
+                                        {get_kvrange, 
+                                            StartKey, EndKey, 
+                                            ScanWidth, SegList0},
+                                        infinity) of
         {yield, SlotsToFetchBinList, SlotsToPoint, PressMethod} ->
             binaryslot_reader(SlotsToFetchBinList, PressMethod) 
                 ++ SlotsToPoint;
@@ -359,14 +359,14 @@ sst_getslots(Pid, SlotList) ->
 sst_getfilteredslots(Pid, SlotList, SegList) ->
     SegL0 = tune_seglist(SegList),
     {SlotBins, PressMethod} = 
-        gen_fsm:sync_send_event(Pid, {get_slots, SlotList, SegL0}, infinity),
+        gen_fsm_compat:sync_send_event(Pid, {get_slots, SlotList, SegL0}, infinity),
     binaryslot_reader(SlotBins, PressMethod).
 
 -spec sst_getmaxsequencenumber(pid()) -> integer().
 %% @doc
 %% Get the maximume sequence number for this SST file
 sst_getmaxsequencenumber(Pid) ->
-    gen_fsm:sync_send_event(Pid, get_maxsequencenumber, infinity).
+    gen_fsm_compat:sync_send_event(Pid, get_maxsequencenumber, infinity).
 
 -spec sst_setfordelete(pid(), pid()|false) -> ok.
 %% @doc
@@ -376,21 +376,21 @@ sst_getmaxsequencenumber(Pid) ->
 %% on it have finished).  No polling will be done if the Penciller pid
 %% is 'false'
 sst_setfordelete(Pid, Penciller) ->
-    gen_fsm:sync_send_event(Pid, {set_for_delete, Penciller}, infinity).
+    gen_fsm_compat:sync_send_event(Pid, {set_for_delete, Penciller}, infinity).
 
 -spec sst_clear(pid()) -> ok.
 %% @doc
 %% For this file to be closed and deleted
 sst_clear(Pid) ->
-    gen_fsm:sync_send_event(Pid, {set_for_delete, false}, infinity),
-    gen_fsm:sync_send_event(Pid, close, 1000).
+    gen_fsm_compat:sync_send_event(Pid, {set_for_delete, false}, infinity),
+    gen_fsm_compat:sync_send_event(Pid, close, 1000).
 
 -spec sst_deleteconfirmed(pid()) -> ok.
 %% @doc
 %% Allows a penciller to confirm to a SST file that it can be cleared, as it
 %% is no longer in use
 sst_deleteconfirmed(Pid) ->
-    gen_fsm:send_event(Pid, close).
+    gen_fsm_compat:send_event(Pid, close).
 
 -spec sst_checkready(pid()) -> {ok, string(), tuple(), tuple()}.
 %% @doc
@@ -398,13 +398,13 @@ sst_deleteconfirmed(Pid) ->
 %% the filename and the {startKey, EndKey} for the manifest.
 sst_checkready(Pid) ->
     %% Only used in test
-    gen_fsm:sync_send_event(Pid, background_complete, 100).
+    gen_fsm_compat:sync_send_event(Pid, background_complete, 100).
 
 -spec sst_close(pid()) -> ok.
 %% @doc
 %% Close the file
 sst_close(Pid) ->
-    gen_fsm:sync_send_event(Pid, close, 2000).
+    gen_fsm_compat:sync_send_event(Pid, close, 2000).
 
 -spec sst_printtimings(pid()) -> ok.
 %% @doc
@@ -412,7 +412,7 @@ sst_close(Pid) ->
 %% forced to be printed.
 %% Used in unit tests to force the printing of timings
 sst_printtimings(Pid) ->
-    gen_fsm:sync_send_event(Pid, print_timings, 1000).
+    gen_fsm_compat:sync_send_event(Pid, print_timings, 1000).
 
 
 %%%============================================================================
@@ -644,7 +644,6 @@ terminate(Reason, _StateName, State) ->
 
 code_change(_OldVsn, StateName, State, _Extra) ->
     {ok, StateName, State}.
-
 
 %%%============================================================================
 %%% Internal Functions
@@ -2693,8 +2692,8 @@ key_dominates_test() ->
                     key_dominates([KV7|KL2], [KV2], {true, 1})).
 
 nonsense_coverage_test() ->
-    {ok, Pid} = gen_fsm:start(?MODULE, [], []),
-    ok = gen_fsm:send_all_state_event(Pid, nonsense),
+    {ok, Pid} = gen_fsm_compat:start(?MODULE, [], []),
+    ok = gen_fsm_compat:send_all_state_event(Pid, nonsense),
     ?assertMatch({next_state, reader, #state{}}, handle_info(nonsense,
                                                                 reader,
                                                                 #state{})),

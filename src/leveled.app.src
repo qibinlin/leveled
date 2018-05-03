@@ -5,7 +5,8 @@
   {registered, []},
   {applications, [
                   kernel,
-                  stdlib
+                  stdlib,
+                  gen_fsm_compat
                  ]},
   {mod, { leveled_app, []}},
   {env, [{root_path, "test"}]}

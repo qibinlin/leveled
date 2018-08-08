@@ -353,7 +353,11 @@
     {"CDB19",
         {info, "Sample timings in microseconds for sample_count=~w "
                     ++ "with totals of cycle_count=~w "
-                    ++ "fetch_time=~w index_time=~w"}}
+                    ++ "fetch_time=~w index_time=~w"}},
+    {"TEST001",
+        {critical, "A dummy critical element for eunit ~w"}},
+    {"TEST002",
+        {madeuplevel, "A test element for undefined log levels"}}
         ]).
 
 log(LogRef, Subs) ->
@@ -378,8 +382,8 @@ log_at_level(Level, LogRef, LogText, Subs) ->
             lager:error(Format, Subs2);
         critical ->
             lager:critical(Format, Subs2);
-        _ ->
-            ok
+        Other ->
+            lager:warning("unable to log level ~p for ~p", [Other, LogRef])
     end.
 
 log_timer(LogRef, Subs, StartTime) ->
@@ -415,8 +419,29 @@ log_randomtimer(LogReference, Subs, StartTime, RandomProb) ->
 
 -ifdef(TEST).
 
-log_test() ->
+log_test_() ->
+    {setup,
+     fun() ->
+             lager:start()
+     end,
+     [fun log/0,
+      fun log_unknown_ref/0,
+      fun critical/0,
+      fun bad_level/0]
+    }.
+
+log() ->
     log("D0001", []),
     log_timer("D0001", [], os:timestamp()).
+
+log_unknown_ref() ->
+    ?assertEqual(ok, log("THIS IS NOT A REF", [])),
+    ?assertEqual(ok, log_timer("THIS IS NOT A REF", [], os:timestamp())).
+
+critical() ->
+    ?assertEqual(ok, log("TEST001", ['100%Coverage'])).
+
+bad_level() ->
+    ?assertEqual(ok, log("TEST002", [])).
 
 -endif.

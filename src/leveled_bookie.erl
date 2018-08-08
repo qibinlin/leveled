@@ -326,6 +326,7 @@ book_start(RootPath, LedgerCacheSize, JournalSize, SyncStrategy) ->
 %% comments on the open_options() type
 
 book_start(Opts) ->
+    lager:start(),
     gen_server:start_link(?MODULE, [set_defaults(Opts)], []).
 
 

@@ -5,13 +5,13 @@
 
 -include("include/leveled.hrl").
 
+-ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
+-endif.
 
 -export([log/2,
-            log_timer/3,
-            log_randomtimer/4]).         
-
--define(LOG_LEVEL, [info, warn, error, critical]).
+         log_timer/3,
+         log_randomtimer/4]).
 
 -define(LOGBASE, [
 
@@ -21,7 +21,7 @@
         {info, "Generic log point with term ~w"}},
     {"D0001",
         {debug, "Generic debug log"}},
-    
+
     {"B0001",
         {info, "Bookie starting with Ink ~w Pcl ~w"}},
     {"B0002",
@@ -60,7 +60,7 @@
 
     {"R0001",
         {debug, "Object fold to process batch of ~w objects"}},
-    
+
     {"P0001",
         {debug, "Ledger snapshot ~w registered"}},
     {"P0003",
@@ -124,11 +124,11 @@
                     ++ " with cache size status ~w ~w"}},
     {"P0032",
         {info, "Fetch head timing with sample_count=~w and level timings of"
-                    ++ " foundmem_time=~w found0_time=~w found1_time=~w" 
-                    ++ " found2_time=~w found3_time=~w foundlower_time=~w" 
+                    ++ " foundmem_time=~w found0_time=~w found1_time=~w"
+                    ++ " found2_time=~w found3_time=~w foundlower_time=~w"
                     ++ " missed_time=~w"
                     ++ " with counts of"
-                    ++ " foundmem_count=~w found0_count=~w found1_count=~w" 
+                    ++ " foundmem_count=~w found0_count=~w found1_count=~w"
                     ++ " found2_count=~w found3_count=~w foundlower_count=~w"
                     ++ " missed_count=~w"}},
     {"P0033",
@@ -153,7 +153,7 @@
         {info, "Archiving filename ~s as unused at startup"}},
     {"P0041",
         {info, "Penciller manifest switched from SQN ~w to ~w"}},
-        
+
     {"PC001",
         {info, "Penciller's clerk ~w started with owner ~w"}},
     {"PC002",
@@ -200,7 +200,7 @@
         {info, "Storing reference to deletions at ManifestSQN=~w"}},
     {"PM002",
         {info, "Completed dump of L0 cache to list of size ~w"}},
-    
+
     {"SST01",
         {info, "SST timing for result ~w is sample ~w total ~w and max ~w"}},
     {"SST02",
@@ -225,7 +225,7 @@
         {debug, "Expansion sought to support pointer to pid ~w status ~w"}},
     {"SST11",
         {info, "Level zero creation timings in microseconds "
-                ++ "pmem_fetch=~w merge_lists=~w build_slots=~w " 
+                ++ "pmem_fetch=~w merge_lists=~w build_slots=~w "
                 ++ "build_summary=~w read_switch=~w"}},
     {"SST12",
         {info, "SST Timings for sample_count=~w"
@@ -240,7 +240,7 @@
                 ++ " fold_toslot=~w slot_hashlist=~w"
                 ++ " slot_serialise=~w slot_finish=~w"
                 ++ " is_basement=~w level=~w"}},
-    
+
     {"I0001",
         {info, "Unexpected failure to fetch value for Key=~w SQN=~w "
                 ++ "with reason ~w"}},
@@ -282,7 +282,7 @@
     {"I0019",
         {info, "After ~w PUTs total prepare time is ~w total cdb time is ~w "
                 ++ "and max prepare time is ~w and max cdb time is ~w"}},
-    
+
     {"IC001",
         {info, "Closed for reason ~w so maybe leaving garbage"}},
     {"IC002",
@@ -351,40 +351,40 @@
     {"CDB18",
         {info, "Handled return and write of hashtable"}},
     {"CDB19",
-        {info, "Sample timings in microseconds for sample_count=~w " 
+        {info, "Sample timings in microseconds for sample_count=~w "
                     ++ "with totals of cycle_count=~w "
                     ++ "fetch_time=~w index_time=~w"}}
         ]).
 
-
-log(LogReference, Subs) ->
-    log(LogReference, Subs, ?LOG_LEVEL).
-
-log(LogRef, Subs, SupportedLogLevels) ->
+log(LogRef, Subs) ->
     case lists:keyfind(LogRef, 1, ?LOGBASE) of
         {LogRef, {LogLevel, LogText}} ->
-            case lists:member(LogLevel, SupportedLogLevels) of
-                true ->
-                    io:format(format_time()
-                                ++ " " ++ LogRef ++ " ~w "
-                                ++ LogText ++ "~n",
-                                [self()|Subs]);
-                false ->
-                    ok
-            end;
+            log_at_level(LogLevel, LogRef, LogText, Subs);
         false ->
             ok
     end.
 
+log_at_level(Level, LogRef, LogText, Subs) ->
+    Format = "~s " ++ LogText,
+    Subs2 = [LogRef] ++ Subs,
+    case Level of
+        debug ->
+            lager:debug(Format, Subs2);
+        info ->
+            lager:info(Format, Subs2);
+        warn ->
+            lager:warning(Format, Subs2);
+        error ->
+            lager:error(Format, Subs2);
+        critical ->
+            lager:critical(Format, Subs2);
+        _ ->
+            ok
+    end.
 
-log_timer(LogReference, Subs, StartTime) ->
-    log_timer(LogReference, Subs, StartTime, ?LOG_LEVEL).
-
-log_timer(LogRef, Subs, StartTime, SupportedLogLevels) ->
+log_timer(LogRef, Subs, StartTime) ->
     case lists:keyfind(LogRef, 1, ?LOGBASE) of
         {LogRef, {LogLevel, LogText}} ->
-            case lists:member(LogLevel, SupportedLogLevels) of
-                true ->
                     MicroS = timer:now_diff(os:timestamp(), StartTime),
                     {Unit, Time} = case MicroS of
                                         MicroS when MicroS < 1000 ->
@@ -392,14 +392,10 @@ log_timer(LogRef, Subs, StartTime, SupportedLogLevels) ->
                                         MicroS ->
                                             {"ms", MicroS div 1000}
                                     end,
-                    io:format(format_time()
-                                    ++ " " ++ LogRef ++ " ~w "
-                                    ++ LogText
-                                    ++ " with time taken ~w " ++ Unit ++ "~n",
-                                [self()|Subs] ++ [Time]);
-                false ->
-                    ok
-            end;
+
+            LogText2 =  LogText ++ " with time taken ~w " ++ Unit,
+            Subs2= Subs ++ [Time],
+            log_at_level(LogLevel, LogRef, LogText2, Subs2);
         false ->
             ok
     end.
@@ -413,35 +409,14 @@ log_randomtimer(LogReference, Subs, StartTime, RandomProb) ->
             ok
     end.
 
-format_time() ->
-    format_time(localtime_ms()).
-
-localtime_ms() ->
-    {_, _, Micro} = Now = os:timestamp(),
-    {Date, {Hours, Minutes, Seconds}} = calendar:now_to_local_time(Now),
-    {Date, {Hours, Minutes, Seconds, Micro div 1000 rem 1000}}.
-
-format_time({{Y, M, D}, {H, Mi, S, Ms}}) ->
-    io_lib:format("~b-~2..0b-~2..0b", [Y, M, D]) ++ "T" ++
-        io_lib:format("~2..0b:~2..0b:~2..0b.~3..0b", [H, Mi, S, Ms]).
-
-
 %%%============================================================================
 %%% Test
 %%%============================================================================
-
-
 
 -ifdef(TEST).
 
 log_test() ->
     log("D0001", []),
     log_timer("D0001", [], os:timestamp()).
-
-log_warn_test() ->
-    ok = log("G0001", [], [warn, error]),
-    ok = log("G8888", [], [info, warn, error]),
-    ok = log_timer("G0001", [], os:timestamp(), [warn, error]),
-    ok = log_timer("G8888", [], os:timestamp(), [info, warn, error]).
 
 -endif.

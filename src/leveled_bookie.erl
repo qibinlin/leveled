@@ -326,7 +326,6 @@ book_start(RootPath, LedgerCacheSize, JournalSize, SyncStrategy) ->
 %% comments on the open_options() type
 
 book_start(Opts) ->
-    lager:start(),
     gen_server:start_link(?MODULE, [set_defaults(Opts)], []).
 
 
@@ -2224,7 +2223,19 @@ scan_table_test() ->
     ?assertMatch({[{K1, _}, {K2, _}, {K4, _}], 1, 4},
                     scan_table(Tab0, SK_A0, EK_A9)).
 
-longrunning_test() ->
+
+longrunning_test_() ->
+    {setup,
+     fun() ->
+             lager:start()
+     end,
+     fun(_) ->
+             application:stop(lager)
+     end,
+     [fun longrunning/0]
+    }.
+
+longrunning() ->
     SW = os:timestamp(),
     timer:sleep(100),
     ok = maybe_longrunning(SW, put).

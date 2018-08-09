@@ -424,6 +424,9 @@ log_test_() ->
      fun() ->
              lager:start()
      end,
+     fun(_) ->
+             application:stop(lager)
+     end,
      [fun log/0,
       fun log_unknown_ref/0,
       fun critical/0,

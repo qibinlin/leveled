@@ -447,6 +447,29 @@ query_count(_Config) ->
     true = sets:size(BucketSet3) == 4,
     
     ok = leveled_bookie:book_close(Book5),
+
+    % Now want to prove that we can detect a loss of information from an index
+    % This needs to be done through a single snapshot - needs to be able to
+    % fold over heads and fold over indexes
+
+    % Start the bookie and run a compare tag fold - which takes a full snapshot
+    % of the ledger and supports fold heads funs for more than one tag
+    % The comparison should match
+
+
+    % Close the bookie, and look for an SST file that contains index entries,
+    % then corrupt the file
+
+    % Open the bookie, and re-reun the comparison - should now find deltas
+
+
+    % Close the bookie, and then run an offline repair - which should open, 
+    % after archiving all the files in the ledger, and then close
+
+    % Open the bookie - re-run the comparison, and should find a match
+
+
+    % Close the bookie
     
     testutil:reset_filestructure().
     

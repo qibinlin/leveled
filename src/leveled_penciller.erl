@@ -756,7 +756,6 @@ handle_call({fetch_keys,
             end
         end,
     SSTiter = lists:foldl(SetupFoldFun, [], lists:seq(0, ?MAX_LEVELS - 1)),
-    io:format("SSTiter for query ~w~n", [SSTiter]),
     Folder = 
         fun() -> 
             keyfolder({FilteredL0, SSTiter},
@@ -1499,6 +1498,12 @@ keyfolder({[{IMMKey, IMMVal}|NxIMMiterator], SSTiterator},
                                         {AccFun, Acc1},
                                         {SegmentList, LastModRange, MK1});
                         right_hand_first ->
+                            case leveled_codec:endkey_passed(EndKey, SSTKey) of
+                                true ->
+                                    io:format("WTF SSTKey ~w is passed EndKey ~w~n", [SSTKey, EndKey]);
+                                false ->
+                                    ok
+                            end,
                             {Acc1, MK1} = 
                                 maybe_accumulate(SSTKey, SSTVal, Acc, AccFun,
                                                     MaxKeys, LastModRange),

@@ -1671,10 +1671,10 @@ read_slots(Handle, SlotList, {SegList, LowLastMod, BlockIndexCache},
     % List of segments passed so only {K, V} pairs matching those segments
     % should be returned.  This required the {K, V} pair to have been added 
     % with the appropriate hash - if the pair were added with no_lookup as 
-    % the hash value this will fial unexpectedly.
+    % the hash value this will fail unexpectedly.
     BinMapFun = 
         fun(Pointer, Acc) ->
-            {SP, _L, ID, _SK, _EK} = pointer_mapfun(Pointer),
+            {SP, _L, ID, SK, EK} = pointer_mapfun(Pointer),
             CachedHeader = array:get(ID - 1, BlockIndexCache),
             case extract_header(CachedHeader, IdxModDate) of
                 none ->
@@ -1708,7 +1708,7 @@ read_slots(Handle, SlotList, {SegList, LowLastMod, BlockIndexCache},
                                     % Need to find just the right keys
                                     PositionList = 
                                         find_pos(BlockIdx, SegList, [], 0),
-                                    Acc ++ 
+                                    KVList = 
                                         check_blocks(PositionList,
                                                         {Handle, SP}, 
                                                         BlockLengths, 
@@ -1716,7 +1716,13 @@ read_slots(Handle, SlotList, {SegList, LowLastMod, BlockIndexCache},
                                                         false,
                                                         PressMethod,
                                                         IdxModDate,
-                                                        [])
+                                                        []),
+                                    FilterFun = 
+                                        fun(KV) -> in_range(KV, SK, EK) end,
+                                        % these will need to be filtered as the
+                                        % binaryslot_reader does not check
+                                        % range if raw K/V added
+                                    Acc ++ lists:filter(FilterFun, KVList)
                                         % Note check_blocks shouldreturn [] if
                                         % PositionList is empty
                             end
@@ -1761,12 +1767,21 @@ binaryslot_reader([{SlotBin, ID, SK, EK}|Tail],
                         SegList,
                         Acc ++ TrimmedL,
                         [{ID, BICache}|BIAcc]);
-binaryslot_reader([{K, V}|Tail], 
+binaryslot_reader([{{K, V}, SK, SK}|Tail], 
                     PressMethod, IdxModDate, SegList, Acc, BIAcc) ->
     binaryslot_reader(Tail, 
                         PressMethod, IdxModDate, SegList,
                         Acc ++ [{K, V}], BIAcc).
-                    
+
+
+-spec in_range(leveled_codec:ledger_kv(),
+                range_endpoint(), range_endpoint()) -> boolean().
+in_range({_LK, _LV}, all, all) ->
+    true;
+in_range({LK, _LV}, all, EK) ->
+    not leveled_codec:endkey_passed(EK, LK);
+in_range({LK, _LV}, SK, EK) ->
+    LK >= SK and in_range(LK, all, EK).
 
 read_length_list(Handle, LengthList) ->
     StartPos = element(1, lists:nth(1, LengthList)),

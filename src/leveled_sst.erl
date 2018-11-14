@@ -744,7 +744,7 @@ expand_list_by_pointer({pointer, SSTPid, Slot, StartKey, EndKey},
                                         LowLastMod),
     case length(ExpPointers) > 0 of
         true ->
-            LastKey = lists:last(ExpPointers),
+            {LastKey, _LV} = lists:last(ExpPointers),
             io:format("Last Key on expanded pointers ~w~n", [LastKey]);
         false ->
             ok

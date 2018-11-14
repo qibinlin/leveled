@@ -700,7 +700,7 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %% @doc
 %% Expand a list of pointers, maybe ending up with a list of keys and values
 %% with a tail of pointers
-%% By defauls will not have a segment filter, or a low last_modified_date, but
+%% By default will not have a segment filter, or a low last_modified_date, but
 %% they can be used. Range checking a last modified date must still be made on
 %% the output - at this stage the low last_modified_date has been used to bulk
 %% skip those slots not containing any information over the low last modified
@@ -742,6 +742,8 @@ expand_list_by_pointer({pointer, SSTPid, Slot, StartKey, EndKey},
                                         AccPointers,
                                         SegList,
                                         LowLastMod),
+    LastKey = lists:last(ExpPointers),
+    io:format("Last Key on expanded pointers ~w~n", [LastKey]),
     lists:append(ExpPointers, AccTail);
 expand_list_by_pointer({next, ManEntry, StartKey, EndKey}, 
                                         Tail, Width, SegList, LowLastMod) ->
@@ -849,7 +851,7 @@ sst_getfilteredslots(Pid, SlotList, SegList, LowLastMod) ->
                 non_neg_integer()) -> list(non_neg_integer()).
 %% @doc
 %% Find a list of positions where there is an element with a matching segment
-%% ID to the expected segments (which cna either be a single segment, a list of
+%% ID to the expected segments (which can either be a single segment, a list of
 %% segments or a set of segments depending on size.
 find_pos(<<>>, _Hash, PosList, _Count) ->
     PosList;

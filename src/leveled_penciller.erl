@@ -1441,7 +1441,9 @@ keyfolder({[], SSTiter}, KeyRange, {AccFun, Acc},
                     Acc
             end;
         {NxSSTiter, {SSTKey, SSTVal}} ->
-            magic_keycheck(SSTKey, EndKey, "SST empty IMM"),
+            magic_keycheck(SSTKey, EndKey, 
+                            "SST empty IMM, SSTiter was "
+                                ++ io_lib:format("~w", [SSTiter])),
             {Acc1, MK1} = 
                 maybe_accumulate(SSTKey, SSTVal, Acc, AccFun,
                                     MaxKeys, LastModRange),

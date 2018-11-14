@@ -756,6 +756,7 @@ handle_call({fetch_keys,
             end
         end,
     SSTiter = lists:foldl(SetupFoldFun, [], lists:seq(0, ?MAX_LEVELS - 1)),
+    io:format("SSTiter for query ~w~n", [SSTiter]),
     Folder = 
         fun() -> 
             keyfolder({FilteredL0, SSTiter},

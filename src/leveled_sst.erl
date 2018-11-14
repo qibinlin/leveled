@@ -1780,8 +1780,8 @@ in_range({_LK, _LV}, all, all) ->
     true;
 in_range({LK, _LV}, all, EK) ->
     not leveled_codec:endkey_passed(EK, LK);
-in_range({LK, _LV}, SK, EK) ->
-    LK >= SK and in_range(LK, all, EK).
+in_range({LK, LV}, SK, EK) ->
+    LK >= SK and in_range({LK, LV}, all, EK).
 
 read_length_list(Handle, LengthList) ->
     StartPos = element(1, lists:nth(1, LengthList)),

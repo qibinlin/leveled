@@ -238,6 +238,9 @@
 -define(TIMING_SAMPLECOUNTDOWN, 10000).
 -define(TIMING_SAMPLESIZE, 100).
 -define(OPEN_LASTMOD_RANGE, {0, infinity}).
+-define(MAGIC_KEYS,
+        [{o_rkv, <<51>>, <<48,48,48,54,54,51>, null},
+            {o_rkv, <<51>>, <<48,48,48,57,54,56>, null}]).
 
 -record(state, {manifest, % a manifest record from the leveled_manifest module
                 persisted_sqn = 0 :: integer(), % The highest SQN persisted
@@ -1498,12 +1501,7 @@ keyfolder({[{IMMKey, IMMVal}|NxIMMiterator], SSTiterator},
                                         {AccFun, Acc1},
                                         {SegmentList, LastModRange, MK1});
                         right_hand_first ->
-                            case leveled_codec:endkey_passed(EndKey, SSTKey) of
-                                true ->
-                                    io:format("WTF SSTKey ~w is passed EndKey ~w~n", [SSTKey, EndKey]);
-                                false ->
-                                    ok
-                            end,
+                            
                             {Acc1, MK1} = 
                                 maybe_accumulate(SSTKey, SSTVal, Acc, AccFun,
                                                     MaxKeys, LastModRange),
@@ -1537,6 +1535,12 @@ keyfolder({[{IMMKey, IMMVal}|NxIMMiterator], SSTiterator},
 %% @doc
 %% Make an accumulation decision based one the date range
 maybe_accumulate(LK, LV, Acc, AccFun, MaxKeys, {LowLastMod, HighLastMod}) ->
+    case lists:member(LK, ?MAGIC_KEYS) of
+        true ->
+            io:format("Magic Key ~w accumulated~n", [LK]);
+        false ->
+            ok
+    end,
     {_SQN, _SH, LMD} = leveled_codec:strip_to_indexdetails({LK, LV}),
     RunAcc = 
         (LMD == undefined) or ((LMD >= LowLastMod) and (LMD =< HighLastMod)),

@@ -1441,9 +1441,7 @@ keyfolder({[], SSTiter}, KeyRange, {AccFun, Acc},
                     Acc
             end;
         {NxSSTiter, {SSTKey, SSTVal}} ->
-            magic_keycheck(SSTKey, EndKey, 
-                            "SST empty IMM, SSTiter was "
-                                ++ io_lib:format("~w", [SSTiter])),
+            magic_keycheck(SSTKey, EndKey, "SST empty IMM", SSTiter),
             {Acc1, MK1} = 
                 maybe_accumulate(SSTKey, SSTVal, Acc, AccFun,
                                     MaxKeys, LastModRange),
@@ -1534,10 +1532,15 @@ keyfolder({[{IMMKey, IMMVal}|NxIMMiterator], SSTiterator},
     end.    
 
 magic_keycheck(LK, EndKey, Point) ->
+    magic_keycheck(LK, EndKey, Point, null).
+
+magic_keycheck(LK, EndKey, Point, SSTiter) ->
     case lists:member(LK, ?MAGIC_KEYS) of
         true ->
-            io:format("Magic Key ~w to be accumulated at point ~s but EK ~w~n",
-                        [LK, Point, EndKey]);
+            io:format("Magic Key ~w to be accumulated at point ~s "
+                        "SSTiter is ~w but EK ~w and EKP ~w~n",
+                        [LK, Point, SSTiter, EndKey,
+                            leveled_codec:endkey_passed(EndKey, LK)]);
         false ->
             ok
     end.

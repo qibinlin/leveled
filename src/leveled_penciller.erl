@@ -1441,6 +1441,7 @@ keyfolder({[], SSTiter}, KeyRange, {AccFun, Acc},
                     Acc
             end;
         {NxSSTiter, {SSTKey, SSTVal}} ->
+            magic_keycheck(SSTKey, EndKey, "SST empty IMM"),
             {Acc1, MK1} = 
                 maybe_accumulate(SSTKey, SSTVal, Acc, AccFun,
                                     MaxKeys, LastModRange),
@@ -1469,6 +1470,7 @@ keyfolder({[{IMMKey, IMMVal}|NxIMMiterator], SSTiterator},
                 no_more_keys ->
                     % No more keys in range in the persisted store, so use the
                     % in-memory KV as the next
+                    magic_keycheck(IMMKey, EndKey, "IMM empty SST"),
                     {Acc1, MK1} = 
                         maybe_accumulate(IMMKey, IMMVal, Acc, AccFun,
                                             MaxKeys, LastModRange),
@@ -1486,6 +1488,7 @@ keyfolder({[{IMMKey, IMMVal}|NxIMMiterator], SSTiterator},
                                                         {SSTKey,
                                                             SSTVal}) of
                         left_hand_first ->
+                            magic_keycheck(IMMKey, EndKey, "IMM before SST"),
                             {Acc1, MK1} = 
                                 maybe_accumulate(IMMKey, IMMVal, Acc, AccFun,
                                                     MaxKeys, LastModRange),
@@ -1501,7 +1504,7 @@ keyfolder({[{IMMKey, IMMVal}|NxIMMiterator], SSTiterator},
                                         {AccFun, Acc1},
                                         {SegmentList, LastModRange, MK1});
                         right_hand_first ->
-                            
+                            magic_keycheck(SSTKey, EndKey, "SST before IMM"),
                             {Acc1, MK1} = 
                                 maybe_accumulate(SSTKey, SSTVal, Acc, AccFun,
                                                     MaxKeys, LastModRange),
@@ -1511,6 +1514,7 @@ keyfolder({[{IMMKey, IMMVal}|NxIMMiterator], SSTiterator},
                                         {AccFun, Acc1},
                                         {SegmentList, LastModRange, MK1});
                         left_hand_dominant ->
+                            magic_keycheck(IMMKey, EndKey, "IMM dominates SST"),
                             {Acc1, MK1} = 
                                 maybe_accumulate(IMMKey, IMMVal, Acc, AccFun,
                                                     MaxKeys, LastModRange),
@@ -1527,6 +1531,15 @@ keyfolder({[{IMMKey, IMMVal}|NxIMMiterator], SSTiterator},
             end
     end.    
 
+magic_keycheck(LK, EndKey, Point) ->
+    case lists:member(LK, ?MAGIC_KEYS) of
+        true ->
+            io:format("Magic Key ~w to be accumulated at point ~s but EK ~w~n",
+                        [LK, Point, EndKey]);
+        false ->
+            ok
+    end.
+
 -spec maybe_accumulate(leveled_codec:ledger_key(),
                         leveled_codec:ledger_value(),
                         any(), fun(), integer(),
@@ -1535,12 +1548,6 @@ keyfolder({[{IMMKey, IMMVal}|NxIMMiterator], SSTiterator},
 %% @doc
 %% Make an accumulation decision based one the date range
 maybe_accumulate(LK, LV, Acc, AccFun, MaxKeys, {LowLastMod, HighLastMod}) ->
-    case lists:member(LK, ?MAGIC_KEYS) of
-        true ->
-            io:format("Magic Key ~w accumulated~n", [LK]);
-        false ->
-            ok
-    end,
     {_SQN, _SH, LMD} = leveled_codec:strip_to_indexdetails({LK, LV}),
     RunAcc = 
         (LMD == undefined) or ((LMD >= LowLastMod) and (LMD =< HighLastMod)),

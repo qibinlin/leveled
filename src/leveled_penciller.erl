@@ -239,8 +239,8 @@
 -define(TIMING_SAMPLESIZE, 100).
 -define(OPEN_LASTMOD_RANGE, {0, infinity}).
 -define(MAGIC_KEYS,
-        [{o_rkv, <<51>>, <<48,48,48,54,54,51>, null},
-            {o_rkv, <<51>>, <<48,48,48,57,54,56>, null}]).
+        [{o_rkv, <<51>>, <<48,48,48,54,54,51>>, null},
+            {o_rkv, <<51>>, <<48,48,48,57,54,56>>, null}]).
 
 -record(state, {manifest, % a manifest record from the leveled_manifest module
                 persisted_sqn = 0 :: integer(), % The highest SQN persisted

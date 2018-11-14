@@ -1767,7 +1767,7 @@ binaryslot_reader([{SlotBin, ID, SK, EK}|Tail],
                         SegList,
                         Acc ++ TrimmedL,
                         [{ID, BICache}|BIAcc]);
-binaryslot_reader([{{K, V}, SK, SK}|Tail], 
+binaryslot_reader([{K, V}|Tail], 
                     PressMethod, IdxModDate, SegList, Acc, BIAcc) ->
     binaryslot_reader(Tail, 
                         PressMethod, IdxModDate, SegList,

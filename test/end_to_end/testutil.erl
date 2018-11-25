@@ -184,6 +184,7 @@ book_riakhead(Pid, Bucket, Key) ->
 
 
 riakload(Bookie, ObjectList) ->
+    SW = os:timestamp(),
     lists:foreach(fun({_RN, Obj, Spc}) ->
                             R = book_riakput(Bookie, Obj, Spc),
                             case R of
@@ -191,7 +192,11 @@ riakload(Bookie, ObjectList) ->
                                 pause -> timer:sleep(?SLOWOFFER_DELAY)
                             end
                             end,
-                    ObjectList).
+                    ObjectList),
+    io:format("Load of ~w riak objects took ~w ms~n",
+                [length(ObjectList),
+                    timer:now_diff(os:timestamp(), SW)/1000]).
+
 
 stdload(Bookie, Count) -> 
     stdload(Bookie, Count, []).

@@ -2,7 +2,8 @@
 -include_lib("common_test/include/ct.hrl").
 -include("include/leveled.hrl").
 -export([all/0]).
--export([simple_put_fetch_head_delete/1,
+-export([basic_store_direct_test/1,
+            simple_put_fetch_head_delete/1,
             many_put_fetch_head/1,
             journal_compaction/1,
             fetchput_snapshot/1,
@@ -17,6 +18,7 @@
             ]).
 
 all() -> [
+            basic_store_direct_test,
             simple_put_fetch_head_delete,
             many_put_fetch_head,
             journal_compaction,
@@ -30,6 +32,38 @@ all() -> [
             safereaderror_startup,
             remove_journal_test
             ].
+
+basic_store_direct_test(_Config) ->
+    {ok, Bookie} =
+    leveled_bookie:book_start([
+                {root_path, "./bookie-test"},
+                {snapshot_bookie, undefined},
+                {cache_size, 2500},
+                {max_journalsize, 100000000},
+                {sync_strategy, none},
+                {head_only, false}, %% has to be false, otherwise only head request api
+                {waste_retention_period, undefined},
+                {max_run_length, undefined},
+                {singlefile_compactionpercentage, 50.0},
+                {maxrunlength_compactionpercentage, 70.0},
+                {reload_strategy, []},
+                {max_pencillercachesize, 28000},
+                {compression_method, lz4},
+                {compression_point, on_receipt}]),
+
+    Prefixes = [{a,a},{a,b},{a,c},{a,d}],
+    _KVPairsByPrefix =
+    lists:foldl(
+        fun(I, Acc) ->
+                lists:foldl(
+                fun(P, _AccAcc) ->
+                        Key = sext:encode({P, I}),
+                        Val = term_to_binary(I),
+                        not_found = leveled_bookie:book_get(Bookie, <<"test">>, Key),
+                        ok = leveled_bookie:book_put(Bookie, <<"test">>, Key, Val, []),
+                        {ok, Val} = leveled_bookie:book_get(Bookie, <<"test">>, Key)
+                end, Acc, Prefixes)
+        end, #{}, lists:seq(1, 10000)).
 
 
 simple_put_fetch_head_delete(_Config) ->

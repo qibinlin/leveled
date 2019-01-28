@@ -100,8 +100,8 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -define(CACHE_SIZE, 2500).
--define(MIN_CACHE_SIZE, 100).
--define(MIN_PCL_CACHE_SIZE, 400).
+-define(MIN_CACHE_SIZE, 10).
+-define(MIN_PCL_CACHE_SIZE, 40).
 -define(MAX_PCL_CACHE_SIZE, 28000). 
     % This is less than actual max - but COIN_SIDECOUNT
 -define(CACHE_SIZE_JITTER, 25).

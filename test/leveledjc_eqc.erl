@@ -1039,7 +1039,16 @@ prop_db() ->
                     leveled_bookie:book_destroy(Pid)
             end,
 
-            Wait = wait_for_procs(Procs, 1500),
+            Wait = wait_for_procs(Procs, 11000),
+                % Wait at least for delete_pending timeout + 1s
+            lists:foreach(fun(P) ->
+                                io:format("~nProcess info for ~w:~n~w~n",
+                                            [P, process_info(P)]),
+                                io:format("Stacktrace:~n ~w~n",
+                                            [process_info(P, current_stacktrace)]),
+                                io:format("~n")
+                            end,
+                            Wait),
             RunTime = erlang:system_time(millisecond) - StartTime,
 
             %% Since in parallel commands we don't have access to the state, we retrieve functions
@@ -1215,10 +1224,9 @@ wait_for_procs(Known, Timeout) ->
         _NonEmptyList ->
             if
                 Timeout > 0 ->
-                    timer:sleep(100),
-                    wait_for_procs(Known, Timeout - 100);
+                    timer:sleep(500),
+                    wait_for_procs(Known, Timeout - 500);
                 true ->
-                    timer:sleep(10000),
                     erlang:processes() -- Known
             end
     end.

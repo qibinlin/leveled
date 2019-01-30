@@ -1039,13 +1039,17 @@ prop_db() ->
                     leveled_bookie:book_destroy(Pid)
             end,
 
-            Wait = wait_for_procs(Procs, 11000),
+            Wait = wait_for_procs(Procs, 12000),
                 % Wait at least for delete_pending timeout + 1s
+                % However, even then can hit the issue of the Quviq license 
+                % call spawning processes
             lists:foreach(fun(P) ->
                                 io:format("~nProcess info for ~w:~n~w~n",
                                             [P, process_info(P)]),
                                 io:format("Stacktrace:~n ~w~n",
                                             [process_info(P, current_stacktrace)]),
+                                io:format("Monitored by:~n ~w~n",
+                                            [process_info(P, monitored_by)]),
                                 io:format("~n")
                             end,
                             Wait),
@@ -1219,17 +1223,58 @@ in_head_only_mode(S) ->
     proplists:get_value(head_only, maps:get(start_opts, S, []), false) =/= false.
 
 wait_for_procs(Known, Timeout) ->
-    case erlang:processes() -- Known of
+    case filtered_processes(Known) of
         [] -> [];
         _NonEmptyList ->
             if
                 Timeout > 0 ->
-                    timer:sleep(500),
-                    wait_for_procs(Known, Timeout - 500);
+                    timer:sleep(200),
+                    wait_for_procs(Known, Timeout - 200);
                 true ->
-                    erlang:processes() -- Known
+                    filtered_processes(Known)
             end
     end.
+
+filtered_processes(Known) ->
+    FilterFun = 
+        fun(P) ->
+            case process_info(P, current_stacktrace) of
+                {current_stacktrace, ST} ->
+                    case lists:keymember(eqc_licence, 1, ST) or 
+                            lists:keymember(eqc_group_commands, 1, ST) of
+                        true ->
+                            % This is an eqc background process
+                            false;
+                        false ->
+                            case process_info(P, dictionary) of
+                                {dictionary, PD} ->
+                                    HTTPCall = {'$initial_call',{httpc_handler,init,1}},
+                                    DNSCall = {'$initial_call',{supervisor_bridge,inet_gethost_native,1}},
+                                    case lists:member(HTTPCall, PD)
+                                            or lists:member(DNSCall, PD) of
+                                        true ->
+                                            % This is the HTTP/DNS call for the licence
+                                            false;
+                                        _ ->
+                                            case process_info(P, current_function) of
+                                                {current_function,{inet_gethost_native,main_loop,1}} ->
+                                                    % This is par tof the HTTP/DNS call
+                                                    false;
+                                                _ ->
+                                                    true
+                                            end
+                                    end;
+                                undefined ->
+                                    %Eh ?
+                                    true
+                            end
+                    end;
+                undefined ->
+                    % Eh?
+                    true
+            end
+        end,
+    lists:filter(FilterFun, erlang:processes() -- Known).
 
 delete_level_data(Dir) ->
     os:cmd("rm -rf " ++ Dir).

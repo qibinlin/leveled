@@ -107,7 +107,8 @@
 -define(CACHE_SIZE_JITTER, 25).
 -define(JOURNAL_SIZE_JITTER, 20).
 -define(ABSOLUTEMAX_JOURNALSIZE, 4000000000).
--define(LONG_RUNNING, 80000).
+-define(LONG_RUNNING, 200000).
+    % An individual task taking > 200ms gets a specific log
 -define(COMPRESSION_METHOD, lz4).
 -define(COMPRESSION_POINT, on_receipt).
 -define(LOG_LEVEL, info).
@@ -2186,21 +2187,13 @@ maybepush_ledgercache(MaxCacheSize, Cache, Penciller) ->
 
 -spec maybe_withjitter(integer(), integer()) -> boolean().
 %% @doc
-%% Push down randomly, but the closer to the maximum size, the more likely a 
-%% push should be
-maybe_withjitter(CacheSize, MaxCacheSize) ->
-    if
-        CacheSize > MaxCacheSize ->
-            R = leveled_rand:uniform(7 * MaxCacheSize),
-            if
-                (CacheSize - MaxCacheSize) > R ->
-                    true;
-                true ->
-                    false
-            end;
-        true ->
-            false
-    end.
+%% Push down randomly, but the closer to 4 * the maximum size, the more likely
+%% a push should be
+maybe_withjitter(CacheSize, MaxCacheSize) when CacheSize > MaxCacheSize ->
+    R = leveled_rand:uniform(4 * MaxCacheSize),
+    (CacheSize - MaxCacheSize) > R;
+maybe_withjitter(_CacheSize, _MaxCacheSize) ->
+    false.
 
 
 -spec get_loadfun(book_state()) -> fun().
@@ -2975,7 +2968,7 @@ scan_table_test() ->
 
 longrunning_test() ->
     SW = os:timestamp(),
-    timer:sleep(100),
+    timer:sleep(?LONG_RUNNING div 1000 + 100),
     ok = maybe_longrunning(SW, put).
 
 coverage_cheat_test() ->
@@ -3019,7 +3012,72 @@ erase_journal_test() ->
     HeadsNotFound2 = lists:foldl(CheckHeadFun(Bookie2), 0, ObjL1),
     ?assertMatch(500, HeadsNotFound2),
     ok = book_destroy(Bookie2).
+
+sqnorder_fold_test() ->
+    RootPath = reset_filestructure(),
+    {ok, Bookie1} = book_start([{root_path, RootPath},
+                                    {max_journalsize, 1000000},
+                                    {cache_size, 500}]),
+    ok = book_put(Bookie1, 
+                    <<"B">>, <<"K1">>, {value, <<"V1">>}, [], 
+                    ?STD_TAG),
+    ok = book_put(Bookie1, 
+                    <<"B">>, <<"K2">>, {value, <<"V2">>}, [], 
+                    ?STD_TAG),
     
+    FoldObjectsFun = fun(B, K, V, Acc) -> Acc ++ [{B, K, V}] end,
+    {async, ObjFPre} =
+        book_objectfold(Bookie1,
+                        ?STD_TAG, {FoldObjectsFun, []}, true, sqn_order),
+    {async, ObjFPost} =
+        book_objectfold(Bookie1,
+                        ?STD_TAG, {FoldObjectsFun, []}, false, sqn_order),
+    
+    ok = book_put(Bookie1, 
+                    <<"B">>, <<"K3">>, {value, <<"V3">>}, [], 
+                    ?STD_TAG),
+
+    ObjLPre = ObjFPre(),
+    ?assertMatch([{<<"B">>, <<"K1">>, {value, <<"V1">>}},
+                    {<<"B">>, <<"K2">>, {value, <<"V2">>}}], ObjLPre),
+    ObjLPost = ObjFPost(),
+    ?assertMatch([{<<"B">>, <<"K1">>, {value, <<"V1">>}},
+                    {<<"B">>, <<"K2">>, {value, <<"V2">>}},
+                    {<<"B">>, <<"K3">>, {value, <<"V3">>}}], ObjLPost),
+    
+    ok = book_destroy(Bookie1).
+
+sqnorder_mutatefold_test() ->
+    RootPath = reset_filestructure(),
+    {ok, Bookie1} = book_start([{root_path, RootPath},
+                                    {max_journalsize, 1000000},
+                                    {cache_size, 500}]),
+    ok = book_put(Bookie1, 
+                    <<"B">>, <<"K1">>, {value, <<"V1">>}, [], 
+                    ?STD_TAG),
+    ok = book_put(Bookie1, 
+                    <<"B">>, <<"K1">>, {value, <<"V2">>}, [], 
+                    ?STD_TAG),
+    
+    FoldObjectsFun = fun(B, K, V, Acc) -> Acc ++ [{B, K, V}] end,
+    {async, ObjFPre} =
+        book_objectfold(Bookie1,
+                        ?STD_TAG, {FoldObjectsFun, []}, true, sqn_order),
+    {async, ObjFPost} =
+        book_objectfold(Bookie1,
+                        ?STD_TAG, {FoldObjectsFun, []}, false, sqn_order),
+    
+    ok = book_put(Bookie1, 
+                    <<"B">>, <<"K1">>, {value, <<"V3">>}, [], 
+                    ?STD_TAG),
+
+    ObjLPre = ObjFPre(),
+    ?assertMatch([{<<"B">>, <<"K1">>, {value, <<"V2">>}}], ObjLPre),
+    ObjLPost = ObjFPost(),
+    ?assertMatch([{<<"B">>, <<"K1">>, {value, <<"V3">>}}], ObjLPost),
+    
+    ok = book_destroy(Bookie1).
+
 check_notfound_test() ->
     ProbablyFun = fun() -> probably end,
     MissingFun = fun() -> missing end,
